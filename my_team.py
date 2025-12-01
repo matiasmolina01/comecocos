@@ -37,7 +37,7 @@ class SmartAgent(CaptureAgent):
         self.start = game_state.get_agent_position(self.index)
         # threshold of pellets to carry before returning
         self.return_threshold = 4
-
+    #to make sure that it doesnt stay in between grid points
     def get_successor(self, game_state, action):
         # same logic as baseline: ensure successor is a grid point
         successor = game_state.generate_successor(self.index, action)
@@ -48,19 +48,26 @@ class SmartAgent(CaptureAgent):
         return successor
 
     def visible_enemies(self, game_state):
+        #loop that iterates over all opponent agent indices and then in loop we get the agent object and introduces it in a list
         enemies = [game_state.get_agent_state(i) for i in self.get_opponents(game_state)]
+        #we add them to visible list if we can get enemy position (so if there are not behind walls far away or not in line of sight)
         visible = [e for e in enemies if e.get_position() is not None]
         return visible
 
     def nearest_visible_enemy(self, game_state, consider_scared=False):
+
         enemies = self.visible_enemies(game_state)
         best = None
         best_d = None
         for e in enemies:
+            #if enemy scared you go on 
             if not consider_scared and e.scared_timer > 0:
                 continue
+            #get enemy position
             pos = e.get_position()
+            #get distance between agent and enemy
             d = self.get_maze_distance(game_state.get_agent_state(self.index).get_position(), pos)
+            #if distance to enemy smaller than previous enemy best now is new enemy (minimizing enemy distances)
             if best is None or d < best_d:
                 best, best_d = e, d
         return best, best_d
@@ -102,6 +109,7 @@ class SmartOffensiveAgent(SmartAgent):
 
         # 2) distance to nearest food (prefer smaller)
         if opponent_food:
+            #goes through the positions of the food in respect to your actual position and calculates min distance
             dists = [self.get_maze_distance(my_pos, f) for f in opponent_food]
             features['dist_food'] = min(dists)
         else:
@@ -109,9 +117,14 @@ class SmartOffensiveAgent(SmartAgent):
 
         # 3) cluster size near the chosen food (prefer clusters)
         # estimate cluster by counting foods within radius 3 of closest food
+        #if nearest food is around a cluster then --> higher feature score
+        #if nearest food is isolated -->lower feature score
         if opponent_food:
+            #we calculate the closest food available
             closest_food = min(opponent_food, key=lambda f: self.get_maze_distance(my_pos, f))
+            #this sums if there is food near the closest food thus taking into account if therer are clusters of food and not only closest food
             cluster = sum(1 for f in opponent_food if self.get_maze_distance(closest_food, f) <= 3)
+            #We determie that a feature is how many pellets of food are nearby that closest food
             features['cluster'] = cluster
         else:
             features['cluster'] = 0
@@ -120,14 +133,26 @@ class SmartOffensiveAgent(SmartAgent):
         carrying = my_state.num_carrying if hasattr(my_state, 'num_carrying') else 0
         features['carrying'] = carrying
 
+         # Only large carrying creates urgency to return
+         #by multiplying amount of pelelts carried by distance we encourage pacman that has pellets to come back home and not risk it
+        features['return_home_urgency'] = carrying * self.get_maze_distance(my_pos, self.start)
+
         # 5) ghost avoidance: penalize positions that are close to non-scared ghosts
         enemies = [successor.get_agent_state(i) for i in self.get_opponents(successor)]
         ghost_dists = []
+        chase_ghost_dist = []
         for e in enemies:
             pos = e.get_position()
             if pos is None:
                 continue
-            # if the enemy is currently a ghost (i.e., on our side), or if it's a ghost on the opponent side we still avoid when close
+            if e.scared_timer> 0:
+                
+                d = self.get_maze_distance(my_pos, pos)
+                if d < e.scared_timer:
+                    chase_ghost_dist.append(d)
+                else:
+                    ghost_dists.append(d)
+           
             if e.scared_timer <= 0:
                 d = self.get_maze_distance(my_pos, pos)
                 ghost_dists.append(d)
@@ -135,7 +160,13 @@ class SmartOffensiveAgent(SmartAgent):
             min_g = min(ghost_dists)
         else:
             min_g = 9999
+        if chase_ghost_dist:
+            min_chase_ghost = min(chase_ghost_dist)
+        else:
+            min_chase_ghost = 9999
+        
         features['ghost_dist'] = min_g
+        features['scared_ghost_distance'] = min_chase_ghost
 
         # 6) distance to home (when returning) -> prefer smaller when carrying many
         # home defined as the start position or nearest home-side safe point
@@ -149,6 +180,7 @@ class SmartOffensiveAgent(SmartAgent):
             'cluster': 2.0,        # prefer clusters
             'carrying': 20.0,      # encourage having pellets (so we bring them)
             'ghost_dist': 3.0,     # bigger ghost_dist is good; we will invert in scoring below
+            'scared_ghost_distance': -1.5, # smalller distance is better 
             'dist_home': -2.0      # prefer close to home when returning
         }
 
