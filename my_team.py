@@ -5,6 +5,8 @@ from capture_agents import CaptureAgent
 from game import Directions
 from util import nearest_point
 
+
+
 #################
 # Team creation #
 #################
@@ -178,10 +180,11 @@ class SmartOffensiveAgent(SmartAgent):
             'food_left': -200.0,   # large negative: fewer food is big progress (reduce)
             'dist_food': -1.5,     # go to food
             'cluster': 2.0,        # prefer clusters
-            'carrying': 20.0,      # encourage having pellets (so we bring them)
+            'carrying': -5,      # encourage having pellets (so we bring them)
             'ghost_dist': 3.0,     # bigger ghost_dist is good; we will invert in scoring below
             'scared_ghost_distance': -1.5, # smalller distance is better 
-            'dist_home': -2.0      # prefer close to home when returning
+            'dist_home': -0.5,      # prefer close to home when returning
+            'return_home_urgency': -0.4
         }
 
         # Compute raw linear sum. For ghost_dist we want closer ghosts to penalize: use -1/min_g effect
