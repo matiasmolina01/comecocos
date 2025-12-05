@@ -38,7 +38,7 @@ class SmartAgent(CaptureAgent):
         CaptureAgent.register_initial_state(self, game_state)
         self.start = game_state.get_agent_position(self.index)
         # threshold of pellets to carry before returning
-        self.return_threshold = 4
+        self.return_threshold = 3
     #to make sure that it doesnt stay in between grid points
     def get_successor(self, game_state, action):
         # same logic as baseline: ensure successor is a grid point
@@ -183,8 +183,13 @@ class SmartOffensiveAgent(SmartAgent):
             'carrying': -5,      # encourage having pellets (so we bring them)
             'ghost_dist': 3.0,     # bigger ghost_dist is good; we will invert in scoring below
             'scared_ghost_distance': -1.5, # smalller distance is better 
+<<<<<<< HEAD
             'dist_home': -0.5,      # prefer close to home when returning
             'return_home_urgency': -0.4
+=======
+            'dist_home': -2.0,      # prefer close to home when returning
+            'return_home_urgency' : -1.2 # prefer to return home when carrying many
+>>>>>>> e4e25bbb5ecbe71f1d99ecf84f54daa5996fd2b1
         }
 
         # Compute raw linear sum. For ghost_dist we want closer ghosts to penalize: use -1/min_g effect
@@ -204,6 +209,7 @@ class SmartOffensiveAgent(SmartAgent):
         # returning behavior: if carrying >= threshold then bias to go home
         if features['carrying'] >= self.return_threshold:
             value += weights['dist_home'] * features['dist_home'] * 5.0  # stronger home preference
+            # value += weights['dist_home'] * features['dist_home'] * (features['carrying'] + 1) * 4
         else:
             # encourage to get nearer to the food
             pass
